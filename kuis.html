@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuis Seru Tanpa Batas</title>
+    <!-- Library Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f8ff;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #app {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 90%;
+        }
+        h1 { color: #333; }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            margin: 10px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+            width: 80%;
+        }
+        .btn:hover { background-color: #45a049; }
+        .btn-subject { background-color: #008CBA; }
+        .btn-subject:hover { background-color: #007bb5; }
+        .btn-danger { background-color: #f44336; width: auto; padding: 10px 15px;}
+        .btn-danger:hover { background-color: #da190b; }
+        
+        #quiz-container { display: none; }
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        #score-board {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <!-- Menu Utama -->
+        <div id="menu-container">
+            <h1>Pilih Mata Pelajaran</h1>
+            <button class="btn btn-subject" onclick="mulaiKuis('bindo')">📚 Bahasa Indonesia</button><br>
+            <button class="btn btn-subject" onclick="mulaiKuis('inggris')">🌍 Bahasa Inggris</button><br>
+            <button class="btn btn-subject" onclick="mulaiKuis('mtk')">🧮 Matematika</button>
+        </div>
+
+        <!-- Area Kuis -->
+        <div id="quiz-container">
+            <h2 id="subject-title">Mata Pelajaran</h2>
+            <h3 id="question-text">Pertanyaan akan muncul di sini</h3>
+            <div class="options-grid" id="options-container">
+                <!-- Tombol pilihan ganda akan di-generate oleh JavaScript -->
+            </div>
+            <div id="score-board">Skor: <span id="score">0</span></div>
+            <br>
+            <button class="btn btn-danger" onclick="kembaliKeMenu()">Kembali ke Menu</button>
+        </div>
+    </div>
+
+    <!-- Audio Player (Menggunakan URL sound effect gratis dari Mixkit) -->
+    <audio id="sound-correct" src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"></audio>
+    <audio id="sound-wrong" src="https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3"></audio>
+
+    <script>
+        let skor = 0;
+        let mapelSaatIni = '';
+        
+        // Data Soal Bahasa Indonesia
+        const soalBindo = [
+            { q: "Antonim dari kata 'Tinggi' adalah...", options: ["Pendek", "Besar", "Panjang", "Kecil"], a: "Pendek" },
+            { q: "Sinonim dari kata 'Pintar' adalah...", options: ["Cerdas", "Rajin", "Bodoh", "Malas"], a: "Cerdas" },
+            { q: "Ibukota negara Indonesia adalah...", options: ["Jakarta", "Surabaya", "Bandung", "Medan"], a: "Jakarta" },
+            { q: "Kata dasar dari 'Mempertanggungjawabkan' adalah...", options: ["Tanggung jawab", "Tanggung", "Jawab", "Pertanggung"], a: "Tanggung jawab" },
+            { q: "Majas yang melebih-lebihkan sesuatu disebut majas...", options: ["Hiperbola", "Personifikasi", "Metafora", "Litotes"], a: "Hiperbola" }
+        ];
+
+        // Data Soal Bahasa Inggris
+        const soalInggris = [
+            { q: "Apa bahasa Inggris dari 'Kucing'?", options: ["Cat", "Dog", "Bird", "Fish"], a: "Cat" },
+            { q: "Bentuk lampau (Past Tense) dari 'Go' adalah...", options: ["Went", "Gone", "Going", "Goes"], a: "Went" },
+            { q: "Terjemahkan ke bahasa Indonesia: 'Beautiful'", options: ["Cantik", "Tampan", "Jelek", "Marah"], a: "Cantik" },
+            { q: "I ... a student.", options: ["am", "is", "are", "be"], a: "am" },
+            { q: "The opposite of 'Big' is...", options: ["Small", "Tall", "Long", "Huge"], a: "Small" }
+        ];
+
+        function mulaiKuis(mapel) {
+            mapelSaatIni = mapel;
+            skor = 0;
+            updateSkor();
+            document.getElementById('menu-container').style.display = 'none';
+            document.getElementById('quiz-container').style.display = 'block';
+
+            if(mapel === 'bindo') document.getElementById('subject-title').innerText = "📚 Bahasa Indonesia";
+            if(mapel === 'inggris') document.getElementById('subject-title').innerText = "🌍 Bahasa Inggris";
+            if(mapel === 'mtk') document.getElementById('subject-title').innerText = "🧮 Matematika";
+
+            buatSoal();
+        }
+
+        function kembaliKeMenu() {
+            document.getElementById('menu-container').style.display = 'block';
+            document.getElementById('quiz-container').style.display = 'none';
+        }
+
+        function buatSoal() {
+            let pertanyaan = "";
+            let pilihan = [];
+            let jawabanBenar = "";
+
+            if (mapelSaatIni === 'mtk') {
+                // Generate soal matematika acak secara dinamis
+                let tipe = Math.floor(Math.random() * 3); // 0: tambah, 1: kurang, 2: kali
+                let angka1 = Math.floor(Math.random() * 20) + 1;
+                let angka2 = Math.floor(Math.random() * 20) + 1;
+                
+                if (tipe === 0) {
+                    pertanyaan = `${angka1} + ${angka2} = ?`;
+                    jawabanBenar = (angka1 + angka2).toString();
+                } else if (tipe === 1) {
+                    // Agar tidak minus, pastikan angka1 > angka2
+                    if (angka1 < angka2) [angka1, angka2] = [angka2, angka1];
+                    pertanyaan = `${angka1} - ${angka2} = ?`;
+                    jawabanBenar = (angka1 - angka2).toString();
+                } else {
+                    angka1 = Math.floor(Math.random() * 10) + 1; // Perkalian diperkecil angkanya
+                    angka2 = Math.floor(Math.random() * 10) + 1;
+                    pertanyaan = `${angka1} x ${angka2} = ?`;
+                    jawabanBenar = (angka1 * angka2).toString();
+                }
+
+                // Buat 3 pilihan salah
+                pilihan.push(jawabanBenar);
+                while(pilihan.length < 4) {
+                    let salah = parseInt(jawabanBenar) + Math.floor(Math.random() * 10) - 5;
+                    if (salah.toString() !== jawabanBenar && !pilihan.includes(salah.toString()) && salah >= 0) {
+                        pilihan.push(salah.toString());
+                    }
+                }
+            } 
+            else if (mapelSaatIni === 'bindo') {
+                let soalAcak = soalBindo[Math.floor(Math.random() * soalBindo.length)];
+                pertanyaan = soalAcak.q;
+                pilihan = [...soalAcak.options];
+                jawabanBenar = soalAcak.a;
+            } 
+            else if (mapelSaatIni === 'inggris') {
+                let soalAcak = soalInggris[Math.floor(Math.random() * soalInggris.length)];
+                pertanyaan = soalAcak.q;
+                pilihan = [...soalAcak.options];
+                jawabanBenar = soalAcak.a;
+            }
+
+            // Acak urutan pilihan (Shuffle)
+            pilihan.sort(() => Math.random() - 0.5);
+
+            // Tampilkan ke layar
+            document.getElementById('question-text').innerText = pertanyaan;
+            let optionsHtml = '';
+            pilihan.forEach(opt => {
+                optionsHtml += `<button class="btn" onclick="cekJawaban('${opt}', '${jawabanBenar}')">${opt}</button>`;
+            });
+            document.getElementById('options-container').innerHTML = optionsHtml;
+        }
+
+        function cekJawaban(dipilih, benar) {
+            let soundCorrect = document.getElementById('sound-correct');
+            let soundWrong = document.getElementById('sound-wrong');
+
+            if (dipilih === benar) {
+                // Jawaban Benar
+                soundCorrect.currentTime = 0;
+                soundCorrect.play();
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+                skor += 10;
+            } else {
+                // Jawaban Salah
+                soundWrong.currentTime = 0;
+                soundWrong.play();
+                // Opsional: skor -= 5 (Jika ingin ada pengurangan skor)
+            }
+            
+            updateSkor();
+            
+            // Lanjut ke soal berikutnya secara otomatis (Soal tidak terbatas)
+            setTimeout(() => {
+                buatSoal();
+            }, 800); // Jeda sebentar sebelum soal berganti
+        }
+
+        function updateSkor() {
+            document.getElementById('score').innerText = skor;
+        }
+    </script>
+</body>
+</html>
